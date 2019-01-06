@@ -1,7 +1,8 @@
 package core.servlet;
 
-import com.sun.org.apache.bcel.internal.generic.IF_ACMPEQ;
 import core.annotation.*;
+import core.handler.AspectHandler;
+import core.handler.Scanner;
 import core.utils.StringUtils;
 
 import javax.servlet.ServletConfig;
@@ -14,11 +15,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.net.URL;
 import java.util.*;
 import java.util.logging.Logger;
 
-
+/**
+ * Spring 核心分配器
+ */
 public class MyDispatcherServlet extends HttpServlet {
 
     private Logger logger = Logger.getLogger("init");
@@ -27,6 +31,8 @@ public class MyDispatcherServlet extends HttpServlet {
     private Map<String, Object> ioc = new HashMap<>();
     private Map<String, Method> handlerMapping = new  HashMap<>();
     private Map<String, Object> controllerMap  =new HashMap<>();
+    private Map<String, Object> aspectMap = new HashMap<>();
+    private Map<String, Object> proxyMap = new HashMap<>();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -62,7 +68,7 @@ public class MyDispatcherServlet extends HttpServlet {
         String contextPath = req.getContextPath();
         url = url.replace(contextPath, "").replaceAll("/+", "/");
         // 去掉url前面的斜杠"/"，所有的@MyRequestMapping可以不用写斜杠"/"
-        if(url.lastIndexOf('/')!=0){
+        if(url.lastIndexOf('/') != 0){
             url = url.substring(1);
         }
         if(!this.handlerMapping.containsKey(url)){
@@ -142,10 +148,11 @@ public class MyDispatcherServlet extends HttpServlet {
                         MyQualifier myQualifier = field.getAnnotation(MyQualifier.class);
                         beanName = myQualifier.value().trim();
                     }else {
-                        beanName = toLowerFirstWord(field.getType().getSimpleName());
+                        beanName = StringUtils.toLowerFirstWord(field.getType().getSimpleName());
                     }
                     try {
-                        field.set(bean, ioc.get(beanName));
+                        Object fieldBean = proxyMap.get(beanName);
+                        field.set(bean, null != fieldBean? fieldBean : ioc.get(beanName));
                     }catch (Exception e){
                         e.printStackTrace();
                         continue;
@@ -154,6 +161,7 @@ public class MyDispatcherServlet extends HttpServlet {
             }
         }
     }
+
     private void initHandlerMapping() {
         if (ioc.isEmpty()){
             return;
@@ -171,11 +179,11 @@ public class MyDispatcherServlet extends HttpServlet {
                     for (Method method : methods) {
                         if (method.isAnnotationPresent(MyRequestMapping.class)){
                             MyRequestMapping myRequestMapping = method.getAnnotation(MyRequestMapping.class);
-                            String url =(baseUrl+"/"+myRequestMapping.value()).replaceAll("/+", "/");
+                            String url = (baseUrl+"/"+myRequestMapping.value()).replaceAll("/+", "/");
                             handlerMapping.put(url, method);
                             MyController myController = clazz.getAnnotation(MyController.class);
                             String beanName = StringUtils.isBlank(myController.value())? clazz.getSimpleName() : myController.value();
-                            beanName = toLowerFirstWord(beanName);
+                            beanName = StringUtils.toLowerFirstWord(beanName);
                             controllerMap.put(url, ioc.get(beanName));
                         }
                     }
@@ -184,7 +192,6 @@ public class MyDispatcherServlet extends HttpServlet {
         }catch (Exception e){
             e.printStackTrace();
         }
-        logger.info("11");
     }
 
     /**
@@ -200,14 +207,14 @@ public class MyDispatcherServlet extends HttpServlet {
                 if (clazz.isAnnotationPresent(MyController.class)){
                     MyController myController = clazz.getAnnotation(MyController.class);
                     String beanName = StringUtils.isBlank(myController.value())? clazz.getSimpleName() : myController.value();
-                    ioc.put(toLowerFirstWord(beanName),clazz.newInstance());
-                }else if (clazz.isAnnotationPresent(MyService.class) || clazz.isAnnotationPresent(MyController.class)){
-                    String beanName = toLowerFirstWord(clazz.getSimpleName());
+                    ioc.putIfAbsent(StringUtils.toLowerFirstWord(beanName),clazz.newInstance());
+                }else if (clazz.isAnnotationPresent(MyService.class) || clazz.isAnnotationPresent(MyComponent.class)){
+                    String beanName = StringUtils.toLowerFirstWord(clazz.getSimpleName());
                     Object instance = clazz.newInstance();
-                    ioc.put(beanName, instance);
+                    ioc.putIfAbsent(beanName, instance);
                     Class[] interfaces=clazz.getInterfaces();
                     for (Class<?> i : interfaces){
-                        ioc.put(toLowerFirstWord(i.getSimpleName()),instance);
+                        ioc.putIfAbsent(StringUtils.toLowerFirstWord(i.getSimpleName()),instance);
                     }
                 }else{
                     continue;
@@ -217,20 +224,7 @@ public class MyDispatcherServlet extends HttpServlet {
                 continue;
             }
         }
-    }
-
-    private String toLowerFirstWord(String beanName) {
-        if (null == beanName){
-            return "";
-        }
-        char[] chars = beanName.toCharArray();
-        if (chars.length > 1){
-            char c = chars[0];
-            if (64 < c  && c < 91){
-                chars[0] = (char) (c + 32);
-            }
-        }
-        return String.copyValueOf(chars);
+        AspectHandler.handler( this, proxyMap, aspectMap, ioc, classNames);
     }
 
     /**
@@ -238,16 +232,7 @@ public class MyDispatcherServlet extends HttpServlet {
      * @param packageName
      */
     private void doScanner(String packageName) {
-        URL url = this.getClass().getClassLoader().getResource("/" + packageName.replaceAll("\\.","/"));
-        File dir = new File(url.getFile());
-        for (File file : dir.listFiles()) {
-            if (file.isDirectory()){
-                doScanner(packageName+"."+file.getName());
-            }else{
-                String className = packageName + "." + file.getName().replace(".class","");
-                classNames.add(className);
-            }
-        }
+        Scanner.doScanner(this, packageName, classNames);
     }
 
     /**
@@ -258,7 +243,7 @@ public class MyDispatcherServlet extends HttpServlet {
         //把web.xml中的contextConfigLocation对应value值的文件加载到流里面
         try (InputStream resourceAsStream = this.getClass().getClassLoader().getResourceAsStream(location);) {
             //用Properties文件加载文件里的内容
-            logger.info("读取"+location+"里面的文件");
+            logger.info("读取" + location + "里面的文件");
             properties.load(resourceAsStream);
         } catch (IOException e) {
             e.printStackTrace();
