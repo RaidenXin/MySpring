@@ -10,6 +10,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 
+/**
+ * 切面实际处理类
+ */
 public class AspectInvacationHandler implements MethodInterceptor {
 
     private Object source;

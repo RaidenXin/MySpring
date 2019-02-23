@@ -13,6 +13,13 @@ import java.util.*;
  */
 public class AspectHandler {
 
+    /**
+     * 主处理方法
+     * @param servlet
+     * @param ioc
+     * @param proxyMap
+     * @param classNames
+     */
     public static void handler(MyDispatcherServlet servlet,Map<String, Object> ioc,Map<String, Object> proxyMap,List<String> classNames) {
         for (String className : classNames) {
             try{
@@ -29,6 +36,7 @@ public class AspectHandler {
                             MyPointcut myPointcut = method.getAnnotation(MyPointcut.class);
                             String[] urls = myPointcut.values();
                             for (String url : urls){
+                                //扫描要进行AOP的类，加载类名
                                 Scanner.doScanner(servlet, url, sourceClassName);
                             }
                         }else if(method.isAnnotationPresent(MyBefore.class)){
@@ -37,7 +45,7 @@ public class AspectHandler {
                             afterMethods.add(method);
                         }
                     }
-                    doInstance(ioc, proxyMap, sourceClassName, beforeMethods, afterMethods, aspect);
+                    doProxyInstance(ioc, proxyMap, sourceClassName, beforeMethods, afterMethods, aspect);
                 }
             }catch (Exception e){
                 e.printStackTrace();
@@ -46,21 +54,21 @@ public class AspectHandler {
 
     }
 
-    private static void doInstance(Map<String, Object> ioc,Map<String, Object> proxyMap,List<String> classNames,List<Method> beforeMethods,List<Method> afterMethods,Aspect aspect) {
+    private static void doProxyInstance(Map<String, Object> ioc, Map<String, Object> proxyMap, List<String> classNames, List<Method> beforeMethods, List<Method> afterMethods, Aspect aspect) {
         for (String className : classNames) {
             try {
                 Class<?> clazz = Class.forName(className);
                 if (clazz.isAnnotationPresent(MyService.class) && isProxy(beforeMethods, afterMethods, clazz)){
                     String beanName = StringUtils.toLowerFirstWord(clazz.getSimpleName());
-                    doInstance(ioc, proxyMap, beforeMethods, afterMethods, clazz, aspect, beanName);
+                    doProxyInstance(ioc, proxyMap, beforeMethods, afterMethods, clazz, aspect, beanName);
                 }else if (clazz.isAnnotationPresent(MyController.class) && isProxy(beforeMethods, afterMethods, clazz)){
                     MyController controller = clazz.getAnnotation(MyController.class);
                     String beanName = StringUtils.isBlank(controller.value())? StringUtils.toLowerFirstWord(clazz.getSimpleName()) : controller.value();
-                    doInstance(ioc, proxyMap, beforeMethods, afterMethods, clazz, aspect, beanName);
+                    doProxyInstance(ioc, proxyMap, beforeMethods, afterMethods, clazz, aspect, beanName);
                 }else if (clazz.isAnnotationPresent(MyComponent.class) && isProxy(beforeMethods, afterMethods, clazz)){
                     MyComponent component = clazz.getAnnotation(MyComponent.class);
                     String beanName = StringUtils.isBlank(component.value())? StringUtils.toLowerFirstWord(clazz.getSimpleName()) : component.value();
-                    doInstance(ioc, proxyMap, beforeMethods, afterMethods, clazz, aspect, beanName);
+                    doProxyInstance(ioc, proxyMap, beforeMethods, afterMethods, clazz, aspect, beanName);
                 }
             }catch (Exception e){
                 e.printStackTrace();
@@ -68,8 +76,16 @@ public class AspectHandler {
         }
     }
 
+    /**
+     * 是否需要创建代理类
+     * @param beforeMethods
+     * @param afterMethods
+     * @param clazz
+     * @return
+     */
     private static boolean isProxy(List<Method> beforeMethods,List<Method> afterMethods,Class<?> clazz){
         Set<String> methodNames = new HashSet<>();
+        //看看该类中是否含有要拦截的方法，如果有就需要创建代理
         for (Method m : beforeMethods) {
             MyBefore myBefore = m.getAnnotation(MyBefore.class);
             methodNames.addAll(Arrays.asList(myBefore.MethodNames()));
@@ -86,8 +102,20 @@ public class AspectHandler {
         return false;
     }
 
-    private static void doInstance(Map<String, Object> ioc,Map<String, Object> proxyMap,List<Method> beforeMethods,List<Method> afterMethods,
-                                   Class<?> clazz,Aspect aspect,String beanName) throws Exception{
+    /**
+     * 创建代理实例
+     * @param ioc
+     * @param proxyMap
+     * @param beforeMethods
+     * @param afterMethods
+     * @param clazz
+     * @param aspect
+     * @param beanName
+     * @throws Exception
+     */
+    private static void doProxyInstance(Map<String, Object> ioc, Map<String, Object> proxyMap, List<Method> beforeMethods, List<Method> afterMethods,
+                                        Class<?> clazz, Aspect aspect, String beanName) throws Exception{
+        //通过代理工厂获得代理实例
         Object instance = ProxyBeanFactory.getProxyBean(ioc.get(beanName), aspect, beforeMethods, afterMethods);
         proxyMap.put(beanName, instance);
         Class<?>[] interfaces = clazz.getInterfaces();

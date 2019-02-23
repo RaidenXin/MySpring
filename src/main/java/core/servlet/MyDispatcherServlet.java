@@ -146,6 +146,7 @@ public class MyDispatcherServlet extends HttpServlet {
                             beanName = StringUtils.toLowerFirstWord(field.getType().getSimpleName());
                         }
                         try {
+                            //获取实例的时候，如果有代理就获取代理实例，没有就直接获取该实例
                             Object fieldInstance = null == proxyMap.get(beanName)? ioc.get(beanName) : proxyMap.get(beanName);
                             field.set(bean, fieldInstance);
                         }catch (Exception e){
@@ -160,6 +161,9 @@ public class MyDispatcherServlet extends HttpServlet {
         }
     }
 
+    /**
+     * 初始化链接映射
+     */
     private void initHandlerMapping() {
         if (classNames.isEmpty()){
             return;
@@ -169,7 +173,7 @@ public class MyDispatcherServlet extends HttpServlet {
                 Class<?> clazz = Class.forName(className);
                 if (clazz.isAnnotationPresent(MyController.class)){
                     MyController myController = clazz.getAnnotation(MyController.class);
-                    String baseUrl = "";
+                    String baseUrl = StringUtils.EMPTY;
                     if (clazz.isAnnotationPresent(MyRequestMapping.class)){
                         MyRequestMapping myRequestMapping = clazz.getAnnotation(MyRequestMapping.class);
                         baseUrl = myRequestMapping.value();
@@ -214,23 +218,13 @@ public class MyDispatcherServlet extends HttpServlet {
                     String beanName = StringUtils.toLowerFirstWord(clazz.getSimpleName());
                     Object instance = clazz.newInstance();
                     ioc.put(beanName, instance);
-                    Class<?>[] interfaces=clazz.getInterfaces();
-                    for (Class<?> i : interfaces){
-                        if (null != ioc.put(StringUtils.toLowerFirstWord(i.getSimpleName()),instance)){
-                            throw new RuntimeException("There can't be the same beans![" + beanName + "]");
-                        }
-                    }
+                    doInterFacesInstance(clazz, instance, beanName);
                 }else if (clazz.isAnnotationPresent(MyComponent.class)){
                     MyComponent myComponent = clazz.getAnnotation(MyComponent.class);
                     String beanName = StringUtils.isBlank(myComponent.value())? clazz.getSimpleName() : myComponent.value();
                     Object instance = clazz.newInstance();
                     ioc.put(StringUtils.toLowerFirstWord(beanName), instance);
-                    Class<?>[] interfaces=clazz.getInterfaces();
-                    for (Class<?> i : interfaces){
-                        if (null != ioc.put(StringUtils.toLowerFirstWord(i.getSimpleName()),instance)){
-                            throw new RuntimeException("There can't be the same beans![" + beanName + "]");
-                        }
-                    }
+                    doInterFacesInstance(clazz, instance, beanName);
                 }else {
                     continue;
                 }
@@ -241,6 +235,22 @@ public class MyDispatcherServlet extends HttpServlet {
         }
         //通过代理实现AOP
         AspectHandler.handler( this, ioc, proxyMap, classNames);
+    }
+
+    /**
+     * 获取接口实例，放入IOC容器中
+     * @param clazz
+     * @param instance
+     * @param beanName
+     */
+    private void doInterFacesInstance(Class<?> clazz,Object instance,String beanName){
+        Class<?>[] interfaces = clazz.getInterfaces();
+        for (Class<?> i : interfaces){
+            //如果一个接口存在2个实例，报错
+            if (null != ioc.put(StringUtils.toLowerFirstWord(i.getSimpleName()),instance)){
+                throw new RuntimeException("There can't be the same beans![" + beanName + "]");
+            }
+        }
     }
 
     /**

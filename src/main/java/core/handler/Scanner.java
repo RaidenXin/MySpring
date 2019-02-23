@@ -9,7 +9,7 @@ import java.util.List;
 public class Scanner {
 
     /**
-     *  将指定包下扫描得到的类，添加到classNames字段中
+     *  扫描得到指定包下面的类名
      * @param packageName
      */
     public static void doScanner(MyDispatcherServlet servlet, String packageName, List<String> classNames) {
