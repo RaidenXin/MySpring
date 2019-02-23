@@ -4,7 +4,7 @@ import com.huihuang.service.TestService;
 import core.annotation.MyAutowired;
 import core.annotation.MyController;
 import core.annotation.MyRequestMapping;
-import core.annotation.MyRequestParam;;
+import core.annotation.MyRequestParam;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;

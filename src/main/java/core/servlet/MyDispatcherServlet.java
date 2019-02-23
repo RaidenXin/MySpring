@@ -10,13 +10,10 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
-import java.net.URL;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -25,14 +22,17 @@ import java.util.logging.Logger;
  */
 public class MyDispatcherServlet extends HttpServlet {
 
-    private Logger logger = Logger.getLogger("init");
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = -6011758066002109961L;
+	private Logger logger = Logger.getLogger("init");
     private Properties properties = new Properties();
     private List<String> classNames = new ArrayList<>();
     private Map<String, Object> ioc = new HashMap<>();
     private Map<String, Method> handlerMapping = new  HashMap<>();
     private Map<String, Object> controllerMap  =new HashMap<>();
     private Map<String, Object> aspectMap = new HashMap<>();
-    private Map<String, Object> proxyMap = new HashMap<>();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -151,8 +151,7 @@ public class MyDispatcherServlet extends HttpServlet {
                         beanName = StringUtils.toLowerFirstWord(field.getType().getSimpleName());
                     }
                     try {
-                        Object fieldBean = proxyMap.get(beanName);
-                        field.set(bean, null != fieldBean? fieldBean : ioc.get(beanName));
+                        field.set(bean, ioc.get(beanName));
                     }catch (Exception e){
                         e.printStackTrace();
                         continue;
@@ -212,7 +211,7 @@ public class MyDispatcherServlet extends HttpServlet {
                     String beanName = StringUtils.toLowerFirstWord(clazz.getSimpleName());
                     Object instance = clazz.newInstance();
                     ioc.putIfAbsent(beanName, instance);
-                    Class[] interfaces=clazz.getInterfaces();
+                    Class<?>[] interfaces=clazz.getInterfaces();
                     for (Class<?> i : interfaces){
                         ioc.putIfAbsent(StringUtils.toLowerFirstWord(i.getSimpleName()),instance);
                     }
@@ -224,7 +223,7 @@ public class MyDispatcherServlet extends HttpServlet {
                 continue;
             }
         }
-        AspectHandler.handler( this, proxyMap, aspectMap, ioc, classNames);
+        AspectHandler.handler( this, aspectMap, ioc, classNames);
     }
 
     /**

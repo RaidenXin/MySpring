@@ -15,12 +15,12 @@ public class TestAspect implements Aspect {
     public void aspect(){
     }
 
-    @MyBefore("print")
+    @MyBefore(MethodNames = {"printParam", "myTest"})
     public void before(){
         logger.info("before 开始干活了！");
     }
 
-    @MyAfter("print")
+    @MyAfter(MethodNames = {"printParam", "myTest"})
     public void after(){
         logger.info("after 打完收工了！");
     }
