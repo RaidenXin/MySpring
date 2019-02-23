@@ -32,7 +32,7 @@ public class MyDispatcherServlet extends HttpServlet {
     private Map<String, Object> ioc = new HashMap<>();
     private Map<String, Method> handlerMapping = new  HashMap<>();
     private Map<String, Object> controllerMap  =new HashMap<>();
-    private Map<String, Object> aspectMap = new HashMap<>();
+    private Map<String, Object> proxyMap = new HashMap<>();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -64,13 +64,7 @@ public class MyDispatcherServlet extends HttpServlet {
         if(handlerMapping.isEmpty()){
             return;
         }
-        String url = req.getRequestURI();
-        String contextPath = req.getContextPath();
-        url = url.replace(contextPath, "").replaceAll("/+", "/");
-        // 去掉url前面的斜杠"/"，所有的@MyRequestMapping可以不用写斜杠"/"
-        if(url.lastIndexOf('/') != 0){
-            url = url.substring(1);
-        }
+        String url = req.getRequestURI().replaceAll("/+", "/");
         if(!this.handlerMapping.containsKey(url)){
             resp.getWriter().write("404 NOT FOUND!");
             logger.info("404 NOT FOUND!" + url);
@@ -136,54 +130,61 @@ public class MyDispatcherServlet extends HttpServlet {
         if (ioc.isEmpty()){
             return;
         }
-        for (Map.Entry<String,Object> entry : ioc.entrySet()) {
-            Object bean = entry.getValue();
-            Class<?> clazz = bean.getClass();
-            Field[] fields = clazz.getDeclaredFields();
-            for (Field field : fields) {
-                field.setAccessible(true);
-                if(field.isAnnotationPresent(MyAutowired.class)){
-                    String beanName = "";
-                    if (field.isAnnotationPresent(MyQualifier.class)){
-                        MyQualifier myQualifier = field.getAnnotation(MyQualifier.class);
-                        beanName = myQualifier.value().trim();
-                    }else {
-                        beanName = StringUtils.toLowerFirstWord(field.getType().getSimpleName());
-                    }
-                    try {
-                        field.set(bean, ioc.get(beanName));
-                    }catch (Exception e){
-                        e.printStackTrace();
-                        continue;
+        try {
+            for (Map.Entry<String, Object> entry : ioc.entrySet()) {
+                Object bean = entry.getValue();
+                Class<?> clazz = entry.getValue().getClass();
+                Field[] fields = clazz.getDeclaredFields();
+                for (Field field : fields) {
+                    field.setAccessible(true);
+                    if(field.isAnnotationPresent(MyAutowired.class)){
+                        String beanName = "";
+                        if (field.isAnnotationPresent(MyQualifier.class)){
+                            MyQualifier myQualifier = field.getAnnotation(MyQualifier.class);
+                            beanName = myQualifier.value().trim();
+                        }else {
+                            beanName = StringUtils.toLowerFirstWord(field.getType().getSimpleName());
+                        }
+                        try {
+                            Object fieldInstance = null == proxyMap.get(beanName)? ioc.get(beanName) : proxyMap.get(beanName);
+                            field.set(bean, fieldInstance);
+                        }catch (Exception e){
+                            e.printStackTrace();
+                            continue;
+                        }
                     }
                 }
             }
+        }catch (Exception e){
+            e.printStackTrace();
         }
     }
 
     private void initHandlerMapping() {
-        if (ioc.isEmpty()){
+        if (classNames.isEmpty()){
             return;
         }
         try{
-            for (Map.Entry<String, Object> entry : ioc.entrySet()) {
-                Class<?> clazz = entry.getValue().getClass();
+            for (String className : classNames) {
+                Class<?> clazz = Class.forName(className);
                 if (clazz.isAnnotationPresent(MyController.class)){
+                    MyController myController = clazz.getAnnotation(MyController.class);
                     String baseUrl = "";
                     if (clazz.isAnnotationPresent(MyRequestMapping.class)){
                         MyRequestMapping myRequestMapping = clazz.getAnnotation(MyRequestMapping.class);
                         baseUrl = myRequestMapping.value();
                     }
+                    String beanName = StringUtils.toLowerFirstWord(StringUtils.isBlank(myController.value())? clazz.getSimpleName() : myController.value());
                     Method[] methods = clazz.getMethods();
+                    Object bean = null == proxyMap.get(beanName)? ioc.get(beanName) : proxyMap.get(beanName);
+                    Class<?> beanClass = bean.getClass();
                     for (Method method : methods) {
                         if (method.isAnnotationPresent(MyRequestMapping.class)){
+                            Method m = beanClass.getMethod(method.getName(), method.getParameterTypes());
                             MyRequestMapping myRequestMapping = method.getAnnotation(MyRequestMapping.class);
-                            String url = (baseUrl+"/"+myRequestMapping.value()).replaceAll("/+", "/");
-                            handlerMapping.put(url, method);
-                            MyController myController = clazz.getAnnotation(MyController.class);
-                            String beanName = StringUtils.isBlank(myController.value())? clazz.getSimpleName() : myController.value();
-                            beanName = StringUtils.toLowerFirstWord(beanName);
-                            controllerMap.put(url, ioc.get(beanName));
+                            String url = ("/" + baseUrl+"/"+myRequestMapping.value()).replaceAll("/+", "/");
+                            handlerMapping.put(url, m);
+                            controllerMap.put(url, bean);
                         }
                     }
                 }
@@ -206,16 +207,31 @@ public class MyDispatcherServlet extends HttpServlet {
                 if (clazz.isAnnotationPresent(MyController.class)){
                     MyController myController = clazz.getAnnotation(MyController.class);
                     String beanName = StringUtils.isBlank(myController.value())? clazz.getSimpleName() : myController.value();
-                    ioc.putIfAbsent(StringUtils.toLowerFirstWord(beanName),clazz.newInstance());
-                }else if (clazz.isAnnotationPresent(MyService.class) || clazz.isAnnotationPresent(MyComponent.class)){
+                    if (null != ioc.put(StringUtils.toLowerFirstWord(beanName),clazz.newInstance())){
+                        throw new RuntimeException("There can't be the same beans![" + beanName + "]");
+                    }
+                }else if (clazz.isAnnotationPresent(MyService.class)){
                     String beanName = StringUtils.toLowerFirstWord(clazz.getSimpleName());
                     Object instance = clazz.newInstance();
-                    ioc.putIfAbsent(beanName, instance);
+                    ioc.put(beanName, instance);
                     Class<?>[] interfaces=clazz.getInterfaces();
                     for (Class<?> i : interfaces){
-                        ioc.putIfAbsent(StringUtils.toLowerFirstWord(i.getSimpleName()),instance);
+                        if (null != ioc.put(StringUtils.toLowerFirstWord(i.getSimpleName()),instance)){
+                            throw new RuntimeException("There can't be the same beans![" + beanName + "]");
+                        }
                     }
-                }else{
+                }else if (clazz.isAnnotationPresent(MyComponent.class)){
+                    MyComponent myComponent = clazz.getAnnotation(MyComponent.class);
+                    String beanName = StringUtils.isBlank(myComponent.value())? clazz.getSimpleName() : myComponent.value();
+                    Object instance = clazz.newInstance();
+                    ioc.put(StringUtils.toLowerFirstWord(beanName), instance);
+                    Class<?>[] interfaces=clazz.getInterfaces();
+                    for (Class<?> i : interfaces){
+                        if (null != ioc.put(StringUtils.toLowerFirstWord(i.getSimpleName()),instance)){
+                            throw new RuntimeException("There can't be the same beans![" + beanName + "]");
+                        }
+                    }
+                }else {
                     continue;
                 }
             }catch (Exception e){
@@ -223,7 +239,8 @@ public class MyDispatcherServlet extends HttpServlet {
                 continue;
             }
         }
-        AspectHandler.handler( this, aspectMap, ioc, classNames);
+        //通过代理实现AOP
+        AspectHandler.handler( this, ioc, proxyMap, classNames);
     }
 
     /**

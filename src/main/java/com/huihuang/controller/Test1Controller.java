@@ -16,7 +16,7 @@ public class Test1Controller {
     @MyAutowired
     private TestService testService;
 
-    @MyRequestMapping("test")
+    @MyRequestMapping("mytest")
     public void myTest(HttpServletRequest request, HttpServletResponse response,
                        @MyRequestParam("param") String param){
         try {
