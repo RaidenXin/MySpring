@@ -30,12 +30,9 @@ public class AspectHandler {
                     List<Method> afterMethods = new ArrayList<>();
                     List<Method> aroundMethods = new ArrayList<>();
                     String beanName = StringUtils.toLowerFirstWord(clazz.getSimpleName());
-                    Aspect aspect = (Aspect) ioc.get(beanName);
-                    Method[] methods = clazz.getMethods();
-                    for (Method method : methods){
+                    for (Method method : clazz.getMethods()){
                         if(method.isAnnotationPresent(MyPointcut.class)){
-                            MyPointcut myPointcut = method.getAnnotation(MyPointcut.class);
-                            String[] urls = myPointcut.values();
+                            String[] urls = method.getAnnotation(MyPointcut.class).values();
                             for (String url : urls){
                                 //扫描要进行AOP的类，加载类名
                                 Scanner.doScanner(servlet, url, sourceClassName);
@@ -48,7 +45,7 @@ public class AspectHandler {
                             aroundMethods.add(method);
                         }
                     }
-                    doProxyInstance(ioc, proxyMap, sourceClassName, beforeMethods, afterMethods, aroundMethods, aspect);
+                    doProxyInstance(ioc, proxyMap, sourceClassName, beforeMethods, afterMethods, aroundMethods, (Aspect) ioc.get(beanName));
                 }
             }catch (Exception e){
                 e.printStackTrace();
