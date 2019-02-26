@@ -1,7 +1,9 @@
 package aspect;
 
 import core.annotation.MyAfter;
+import core.annotation.MyAround;
 import core.annotation.MyBefore;
+import core.handler.ProceedingJoinPoint;
 import net.sf.cglib.proxy.Enhancer;
 import net.sf.cglib.proxy.MethodInterceptor;
 import net.sf.cglib.proxy.MethodProxy;
@@ -19,13 +21,15 @@ public class AspectInvacationHandler implements MethodInterceptor {
     private Aspect aspect;
     private List<Method> beforeMethods;
     private List<Method> afterMethods;
+    private List<Method> aroundMethods;
 
-    public AspectInvacationHandler(Object source,Aspect aspect,List<Method> beforeMethods,List<Method> afterMethods){
+    public AspectInvacationHandler(Object source,Aspect aspect,List<Method> beforeMethods,List<Method> afterMethods,List<Method> aroundMethods){
         super();
         this.source = source;
         this.aspect = aspect;
         this.beforeMethods = beforeMethods;
         this.afterMethods = afterMethods;
+        this.aroundMethods = aroundMethods;
     }
 
     public Object getInstance() {
@@ -36,7 +40,7 @@ public class AspectInvacationHandler implements MethodInterceptor {
         return enhancer.create();
     }
 
-    private void before(String methodName) throws InvocationTargetException, IllegalAccessException {
+    private void before(String methodName, Object[] args) throws InvocationTargetException, IllegalAccessException {
         for (Method m : beforeMethods) {
             if (null != m){
                 MyBefore before = m.getAnnotation(MyBefore.class);
@@ -47,7 +51,7 @@ public class AspectInvacationHandler implements MethodInterceptor {
         }
     }
 
-    private void after(String methodName) throws InvocationTargetException, IllegalAccessException {
+    private void after(String methodName, Object[] args) throws InvocationTargetException, IllegalAccessException {
         for (Method m : afterMethods) {
             if (null != m){
                 MyAfter after = m.getAnnotation(MyAfter.class);
@@ -56,6 +60,19 @@ public class AspectInvacationHandler implements MethodInterceptor {
                 }
             }
         }
+    }
+
+    private Object around(String methodName, Method method, Object[] args) throws InvocationTargetException, IllegalAccessException {
+        for (Method m : aroundMethods) {
+            if (null != m){
+                MyAround around = m.getAnnotation(MyAround.class);
+                if (isIntercept(methodName, around.MethodNames())){
+                    Object[] objects = {new ProceedingJoinPoint(source, method, args)};
+                    return m.invoke(aspect, objects);
+                }
+            }
+        }
+        return method.invoke(aspect, args);
     }
 
     private boolean isIntercept(String methodName,String[] methodNames){
@@ -69,9 +86,9 @@ public class AspectInvacationHandler implements MethodInterceptor {
 
     private Object handler(Method method,Object[] args) throws Throwable{
         String methodName = method.getName();
-        before(methodName);
-        Object result = method.invoke(source, args);
-        after(methodName);
+        before(methodName, args);
+        Object result = around(methodName, method, args);
+        after(methodName, args);
         return result;
     }
 
