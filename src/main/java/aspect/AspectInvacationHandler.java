@@ -72,7 +72,7 @@ public class AspectInvacationHandler implements MethodInterceptor {
                 }
             }
         }
-        return method.invoke(aspect, args);
+        return method.invoke(source, args);
     }
 
     private boolean isIntercept(String methodName,String[] methodNames){

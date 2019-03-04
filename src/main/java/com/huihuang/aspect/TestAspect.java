@@ -26,7 +26,7 @@ public class TestAspect implements Aspect {
         logger.info("after 打完收工了！");
     }
 
-    @MyAround(MethodNames = {"printParam", "myTest"})
+    @MyAround(MethodNames = {"printParam"})
     public Object  aroundPringLog(ProceedingJoinPoint proceedingJoinPoint){
         logger.info("around 这是环绕通知！");
         Object[] args = proceedingJoinPoint.getArgs();//得到方法执行所需的参数

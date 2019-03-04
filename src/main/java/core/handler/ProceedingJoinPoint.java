@@ -25,6 +25,6 @@ public class ProceedingJoinPoint {
     }
 
     public Object[] getArgs() {
-        return null;
+        return args;
     }
 }
