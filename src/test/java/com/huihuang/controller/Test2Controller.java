@@ -1,5 +1,8 @@
 package com.huihuang.controller;
 
+import com.huihuang.model.User;
+import com.huihuang.service.TestService;
+import core.annotation.MyAutowired;
 import core.annotation.MyController;
 import core.annotation.MyRequestMapping;
 import core.annotation.MyRequestParam;
@@ -12,12 +15,21 @@ import java.io.IOException;
 @MyRequestMapping("test2")
 public class Test2Controller {
 
+    @MyAutowired
+    private TestService testService;
+
     @MyRequestMapping("test")
-    public void myTest(HttpServletRequest request, HttpServletResponse response, @MyRequestParam("param") String param){
-        try {
-            response.getWriter().write( "Test2Controller:the param you send is :"+param);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public String myTest(@MyRequestParam("param")String param){
+        return "Test2Controller:the param you send is :"+param;
+    }
+
+    @MyRequestMapping("getUser")
+    public User getUser(@MyRequestParam("name")String name){
+        return testService.getUser(name);
+    }
+
+    @MyRequestMapping("getUser2")
+    public User getUser2(@MyRequestParam("user")User user){
+        return testService.getUser(user.getName());
     }
 }

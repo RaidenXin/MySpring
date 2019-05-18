@@ -6,9 +6,6 @@ import core.annotation.MyController;
 import core.annotation.MyRequestMapping;
 import core.annotation.MyRequestParam;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 
 @MyRequestMapping("test")
 @MyController
@@ -17,13 +14,7 @@ public class Test1Controller {
     private TestService testService;
 
     @MyRequestMapping("mytest")
-    public void myTest(HttpServletRequest request, HttpServletResponse response,
-                       @MyRequestParam("param") String param){
-        try {
-            response.getWriter().write( "Test1Controller:the param you send is :"+param);
-            testService.printParam(param);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public void myTest(@MyRequestParam("param") String param){
+        testService.printParam(param);
     }
 }

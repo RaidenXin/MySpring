@@ -1,8 +1,13 @@
 package core.servlet;
 
+import com.alibaba.fastjson.JSON;
+import com.sun.org.apache.regexp.internal.RE;
 import core.annotation.*;
 import core.handler.AspectHandler;
+import core.handler.ParamHandler;
 import core.handler.Scanner;
+import core.interceptor.InterceptorMethod;
+import core.utils.ArrayUtils;
 import core.utils.StringUtils;
 
 import javax.servlet.ServletConfig;
@@ -10,10 +15,12 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.nio.CharBuffer;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -30,7 +37,7 @@ public class MyDispatcherServlet extends HttpServlet {
     private Properties properties = new Properties();
     private List<String> classNames = new ArrayList<>();
     private Map<String, Object> ioc = new HashMap<>();
-    private Map<String, Method> handlerMapping = new  HashMap<>();
+    private Map<String, InterceptorMethod> handlerMapping = new  HashMap<>();
     private Map<String, Object> controllerMap  = new HashMap<>();
     private Map<String, Object> proxyMap = new HashMap<>();
 
@@ -70,33 +77,19 @@ public class MyDispatcherServlet extends HttpServlet {
             logger.info("404 NOT FOUND!" + url);
             return;
         }
-        Method method = this.handlerMapping.get(url);
+        InterceptorMethod method = this.handlerMapping.get(url);
+        Annotation[][] paramAnnotations = method.getAnnotations();
         //获取方法的参数列表
         Class<?>[] parameterTypes = method.getParameterTypes();
         //获取请求的参数
         Map<String, String[]> parameterMap = req.getParameterMap();
         //保存参数值
-        Object [] paramValues = new Object[parameterTypes.length];
-        //方法的参数列表
-        for (int i = 0; i < parameterTypes.length; i++){
-            //根据参数名称，做某些处理
-            String requestParam = parameterTypes[i].getSimpleName();
-            if (requestParam.equals("HttpServletRequest")){
-                //参数类型已明确，这边强转类型
-                paramValues[i] = req;
-            }else if (requestParam.equals("HttpServletResponse")){
-                paramValues[i] = resp;
-            }else if(requestParam.equals("String")){
-                for (Map.Entry<String, String[]> param : parameterMap.entrySet()) {
-                    String value = Arrays.toString(param.getValue()).replaceAll("\\[|\\]", "").replaceAll(",\\s", ",");
-                    paramValues[i] = value;
-                }
-            }
-        }
+        Object [] paramValues = ParamHandler.handler(req, method);
         //利用反射机制来调用
         try {
             //第一个参数是method所对应的实例 在ioc容器中
-            method.invoke(this.controllerMap.get(url), paramValues);
+            Object result = method.invoke(this.controllerMap.get(url), paramValues);
+            resp.getWriter().write(JSON.toJSONString(result));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -181,7 +174,10 @@ public class MyDispatcherServlet extends HttpServlet {
                             Method m = beanClass.getMethod(method.getName(), method.getParameterTypes());
                             MyRequestMapping myRequestMapping = method.getAnnotation(MyRequestMapping.class);
                             String url = ("/" + baseUrl+"/"+myRequestMapping.value()).replaceAll("/+", "/");
-                            handlerMapping.put(url, m);
+                            InterceptorMethod interceptorMethod = new InterceptorMethod();
+                            interceptorMethod.setMethod(m);
+                            interceptorMethod.setAnnotations(method.getParameterAnnotations());
+                            handlerMapping.put(url, interceptorMethod);
                             controllerMap.put(url, bean);
                         }
                     }
