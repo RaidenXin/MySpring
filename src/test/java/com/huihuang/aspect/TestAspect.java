@@ -1,7 +1,6 @@
 package com.huihuang.aspect;
 
-import aspect.Aspect;
-import com.sun.org.apache.xpath.internal.operations.String;
+import core.aspect.Aspect;
 import core.annotation.*;
 
 import java.util.logging.Logger;
@@ -15,12 +14,12 @@ public class TestAspect implements Aspect {
     public void aspect(){
     }
 
-    @MyBefore(MethodNames = {"printParam", "myTest"})
+    @MyBefore(MethodNames = { "myTest"})
     public void before(){
         logger.info("before 开始干活了！");
     }
 
-    @MyAfter(MethodNames = {"printParam", "myTest"})
+    @MyAfter(MethodNames = { "myTest"})
     public void after(){
         logger.info("after 打完收工了！");
     }

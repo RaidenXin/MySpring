@@ -1,4 +1,4 @@
-package aspect;
+package core.aspect;
 
 import core.annotation.MyAfter;
 import core.annotation.MyBefore;

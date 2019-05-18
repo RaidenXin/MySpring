@@ -1,4 +1,4 @@
-package aspect;
+package core.aspect;
 
 public interface Aspect {
 

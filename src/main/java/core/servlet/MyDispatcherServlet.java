@@ -31,7 +31,7 @@ public class MyDispatcherServlet extends HttpServlet {
     private List<String> classNames = new ArrayList<>();
     private Map<String, Object> ioc = new HashMap<>();
     private Map<String, Method> handlerMapping = new  HashMap<>();
-    private Map<String, Object> controllerMap  =new HashMap<>();
+    private Map<String, Object> controllerMap  = new HashMap<>();
     private Map<String, Object> proxyMap = new HashMap<>();
 
     @Override
@@ -84,13 +84,9 @@ public class MyDispatcherServlet extends HttpServlet {
             if (requestParam.equals("HttpServletRequest")){
                 //参数类型已明确，这边强转类型
                 paramValues[i] = req;
-                continue;
-            }
-            if (requestParam.equals("HttpServletResponse")){
+            }else if (requestParam.equals("HttpServletResponse")){
                 paramValues[i] = resp;
-                continue;
-            }
-            if(requestParam.equals("String")){
+            }else if(requestParam.equals("String")){
                 for (Map.Entry<String, String[]> param : parameterMap.entrySet()) {
                     String value = Arrays.toString(param.getValue()).replaceAll("\\[|\\]", "").replaceAll(",\\s", ",");
                     paramValues[i] = value;
@@ -100,7 +96,6 @@ public class MyDispatcherServlet extends HttpServlet {
         //利用反射机制来调用
         try {
             //第一个参数是method所对应的实例 在ioc容器中
-            //method.invoke(this.controllerMap.get(url), paramValues);
             method.invoke(this.controllerMap.get(url), paramValues);
         } catch (Exception e) {
             e.printStackTrace();
@@ -134,8 +129,7 @@ public class MyDispatcherServlet extends HttpServlet {
             for (Map.Entry<String, Object> entry : ioc.entrySet()) {
                 Object bean = entry.getValue();
                 Class<?> clazz = entry.getValue().getClass();
-                Field[] fields = clazz.getDeclaredFields();
-                for (Field field : fields) {
+                for (Field field : clazz.getDeclaredFields()) {
                     field.setAccessible(true);
                     if(field.isAnnotationPresent(MyAutowired.class)){
                         String beanName = "";
@@ -150,7 +144,7 @@ public class MyDispatcherServlet extends HttpServlet {
                             Object fieldInstance = null == proxyMap.get(beanName)? ioc.get(beanName) : proxyMap.get(beanName);
                             field.set(bean, fieldInstance);
                         }catch (Exception e){
-                            e.printStackTrace();
+                            e.printStackTrace();//如果出现报错 则跳过
                             continue;
                         }
                     }
@@ -202,7 +196,7 @@ public class MyDispatcherServlet extends HttpServlet {
      * 实例化
      */
     private void doInstance() {
-        if (classNames.isEmpty()){
+        if (classNames.isEmpty()){//没有类需要实例化
             return;
         }
         for (String className : classNames) {
@@ -230,7 +224,7 @@ public class MyDispatcherServlet extends HttpServlet {
                 }
             }catch (Exception e){
                 e.printStackTrace();
-                continue;
+                continue;//如果实例化报错 则跳过该类
             }
         }
         //通过代理实现AOP
@@ -246,7 +240,7 @@ public class MyDispatcherServlet extends HttpServlet {
     private void doInterFacesInstance(Class<?> clazz,Object instance,String beanName){
         Class<?>[] interfaces = clazz.getInterfaces();
         for (Class<?> i : interfaces){
-            //如果一个接口存在2个实例，报错
+            //如果一个接口存在2个实例，且beanName相同 则报错
             if (null != ioc.put(StringUtils.toLowerFirstWord(i.getSimpleName()),instance)){
                 throw new RuntimeException("There can't be the same beans![" + beanName + "]");
             }
@@ -267,7 +261,7 @@ public class MyDispatcherServlet extends HttpServlet {
      */
     private void doLoadConfig(String location) {
         //把web.xml中的contextConfigLocation对应value值的文件加载到流里面
-        try (InputStream resourceAsStream = this.getClass().getClassLoader().getResourceAsStream(location);) {
+        try (InputStream resourceAsStream = this.getClass().getClassLoader().getResourceAsStream(location)) {
             //用Properties文件加载文件里的内容
             logger.info("读取" + location + "里面的文件");
             properties.load(resourceAsStream);

@@ -13,7 +13,7 @@ public class Scanner {
      * @param packageName
      */
     public static void doScanner(MyDispatcherServlet servlet, String packageName, List<String> classNames) {
-        URL url = servlet.getClass().getClassLoader().getResource("/" + packageName.replaceAll("\\.","/"));
+        URL url = servlet.getClass().getClassLoader().getResource(packageName.replaceAll("\\.","/"));
         File dir = new File(url.getFile());
         for (File file : dir.listFiles()) {
             if (file.isDirectory()){
