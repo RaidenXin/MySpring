@@ -4,6 +4,10 @@ import core.aspect.Aspect;
 import core.annotation.*;
 import core.handler.ProceedingJoinPoint;
 
+import java.io.File;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.sql.PreparedStatement;
 import java.util.logging.Logger;
 
 @MyComponent
@@ -25,12 +29,19 @@ public class TestAspect implements Aspect {
         logger.info("after 打完收工了！");
     }
 
-    @MyAround(MethodNames = {"printParam"})
+    @MyAround(MethodNames = {"printParam","getUser"})
     public Object  aroundPringLog(ProceedingJoinPoint proceedingJoinPoint){
-        logger.info("around 这是环绕通知！");
+        logger.info("around 这是环绕通知！A");
+        try {
+            Field field = proceedingJoinPoint.getClass().getDeclaredField("method");
+            field.setAccessible(true);
+            logger.info("这是里方法：" + ((Method)field.get(proceedingJoinPoint)).getName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         Object[] args = proceedingJoinPoint.getArgs();//得到方法执行所需的参数
-        proceedingJoinPoint.proceed(args);
-        logger.info("around 这是环绕通知！");
-        return null;
+        Object result = proceedingJoinPoint.proceed(args);
+        logger.info("around 这是环绕通知！B");
+        return result;
     }
 }

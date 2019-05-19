@@ -10,7 +10,7 @@ import core.annotation.MyRequestParam;
 @MyRequestMapping("test")
 @MyController
 public class Test1Controller {
-    @MyAutowired
+//    @MyAutowired
     private TestService testService;
 
     @MyRequestMapping("mytest")

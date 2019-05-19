@@ -2,10 +2,7 @@ package com.huihuang.controller;
 
 import com.huihuang.model.User;
 import com.huihuang.service.TestService;
-import core.annotation.MyAutowired;
-import core.annotation.MyController;
-import core.annotation.MyRequestMapping;
-import core.annotation.MyRequestParam;
+import core.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -16,6 +13,7 @@ import java.io.IOException;
 public class Test2Controller {
 
     @MyAutowired
+    @MyQualifier("TestServiceImpl2")
     private TestService testService;
 
     @MyRequestMapping("test")
