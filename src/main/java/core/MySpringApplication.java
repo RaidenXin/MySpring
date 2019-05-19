@@ -4,15 +4,9 @@ import core.annotation.MySpringBootApplication;
 import core.config.EnvConfig;
 import core.servlet.MyDispatcherServlet;
 import org.apache.catalina.Context;
-import org.apache.catalina.Server;
-import org.apache.catalina.Service;
-import org.apache.catalina.connector.Connector;
-import org.apache.catalina.core.StandardContext;
 import org.apache.catalina.startup.Tomcat;
 
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.logging.Logger;
 
 public class MySpringApplication {
