@@ -62,12 +62,6 @@
             <version>8.5.5</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>3.4</version>
-        </dependency>
         <!-- https://mvnrepository.com/artifact/commons-configuration/commons-configuration -->
         <dependency>
             <groupId>commons-configuration</groupId>
