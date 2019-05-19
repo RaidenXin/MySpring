@@ -32,7 +32,11 @@ public class MyDispatcherServlet extends HttpServlet {
 	 * 
 	 */
 	private static final long serialVersionUID = -6011758066002109961L;
+
+	private static String location = "myapplication.properties";
 	private static boolean allowBeanDefinitionOverriding = true;
+
+
 	private Logger logger = Logger.getLogger("init");
     private Properties properties = new Properties();
     private List<String> classNames = new ArrayList<>();
@@ -107,7 +111,7 @@ public class MyDispatcherServlet extends HttpServlet {
         super.init();
         logger.info("初始化MyDispatcherServlet");
         //1.加载配置文件，填充properties字段；
-        doLoadConfig(config.getInitParameter("contextConfigLocation"));
+        doLoadConfig(location);
         //2.根据properties，初始化所有相关联的类,扫描用户设定的包下面所有的类
         doScanner(properties.getProperty("scanPackage"));
         //3.拿到扫描到的类,通过反射机制,实例化,并且放到ioc容器中(k-v  beanName-bean) beanName默认是首字母小写
@@ -301,7 +305,7 @@ public class MyDispatcherServlet extends HttpServlet {
      * @param location 配置文件的位置
      */
     private void doLoadConfig(String location) {
-        //把web.xml中的contextConfigLocation对应value值的文件加载到流里面
+        //配置文件加载到流里面
         try (InputStream resourceAsStream = this.getClass().getClassLoader().getResourceAsStream(location)) {
             //用Properties文件加载文件里的内容
             logger.info("读取" + location + "里面的文件");

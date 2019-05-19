@@ -2,62 +2,45 @@ package core;
 
 import core.annotation.MySpringBootApplication;
 import core.config.EnvConfig;
-import core.exception.BeanDefinitionStoreException;
-import org.apache.catalina.LifecycleException;
+import core.servlet.MyDispatcherServlet;
+import org.apache.catalina.Context;
+import org.apache.catalina.Server;
+import org.apache.catalina.Service;
+import org.apache.catalina.connector.Connector;
 import org.apache.catalina.core.StandardContext;
 import org.apache.catalina.startup.Tomcat;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.logging.Logger;
 
 public class MySpringApplication {
 
+    private static Logger logger = Logger.getLogger("init");
 
     public static void run(Class<?> clazz, String... args) {
         if (clazz.isAnnotationPresent(MySpringBootApplication.class)) {
-            Tomcat tomcat = new Tomcat();
             try {
                 if (!EnvConfig.init()) {
                     System.exit(0);
                 }
-                // 1.创建一个内嵌的Tomcat
-
-
-                // 2.设置Tomcat端口默认为8080
+                Tomcat tomcat = new Tomcat();
                 final Integer webPort = Integer.parseInt(EnvConfig.port);
-                tomcat.setPort(Integer.valueOf(webPort));
-
-
-                // 3.设置工作目录,tomcat需要使用这个目录进行写一些东西
-                final String baseDir = EnvConfig.basedir;
-                tomcat.setBaseDir(baseDir);
-                tomcat.getHost().setAutoDeploy(false);
-
-
-                // 4. 设置webapp资源路径
-                String webappDirLocation = "web/";
-                StandardContext ctx = (StandardContext) tomcat.addWebapp("/", new File(webappDirLocation).getAbsolutePath());
-
-
-                // 5. 设置上下文路每径
-                String contextPath = "";
-                ctx.setPath(contextPath);
-                ctx.addLifecycleListener(new Tomcat.FixContextListener());
-                ctx.setName("MyMVC");
-
-
-                System.out.println("child Name:" + ctx.getName());
-                tomcat.getHost().addChild(ctx);
-
+                tomcat.setPort(webPort);
+                tomcat.setBaseDir("myspring");
+                String webappDirLocation = "myspring/webapps";
+                File dir = new File(webappDirLocation);
+                if(!dir.exists()&&!dir.isDirectory()) {
+                    dir.mkdirs();
+                }
+                Context context = tomcat.addContext("", "/");
+                tomcat.addServlet("", "myspring", new MyDispatcherServlet());
+                context.addServletMappingDecoded("/*", "myspring");
                 tomcat.start();
                 tomcat.getServer().await();
             } catch (Exception exception) {
-                if (exception instanceof BeanDefinitionStoreException && null != tomcat){
-                    try {
-                        tomcat.stop();
-                    } catch (LifecycleException e) {
-                        e.printStackTrace();
-                    }
-                }
+                exception.printStackTrace();
             }
         }
     }
