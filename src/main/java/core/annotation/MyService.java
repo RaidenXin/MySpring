@@ -8,4 +8,5 @@ import java.lang.annotation.*;
 @MyComponent
 public @interface MyService {
 
+    String value() default "";
 }

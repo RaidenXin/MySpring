@@ -1,13 +1,14 @@
 package core.servlet;
 
 import com.alibaba.fastjson.JSON;
-import com.sun.org.apache.regexp.internal.RE;
 import core.annotation.*;
+import core.dto.Response;
+import core.exception.BeanDefinitionStoreException;
 import core.handler.AspectHandler;
 import core.handler.ParamHandler;
 import core.handler.Scanner;
 import core.interceptor.InterceptorMethod;
-import core.utils.ArrayUtils;
+import core.ioc.BeanContainer;
 import core.utils.StringUtils;
 
 import javax.servlet.ServletConfig;
@@ -19,8 +20,6 @@ import java.io.*;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
-import java.nio.CharBuffer;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -33,10 +32,11 @@ public class MyDispatcherServlet extends HttpServlet {
 	 * 
 	 */
 	private static final long serialVersionUID = -6011758066002109961L;
+	private static boolean allowBeanDefinitionOverriding = true;
 	private Logger logger = Logger.getLogger("init");
     private Properties properties = new Properties();
     private List<String> classNames = new ArrayList<>();
-    private Map<String, Object> ioc = new HashMap<>();
+    private BeanContainer ioc = new BeanContainer();
     private Map<String, InterceptorMethod> handlerMapping = new  HashMap<>();
     private Map<String, Object> controllerMap  = new HashMap<>();
     private Map<String, Object> proxyMap = new HashMap<>();
@@ -72,8 +72,11 @@ public class MyDispatcherServlet extends HttpServlet {
             return;
         }
         String url = req.getRequestURI().replaceAll("/+", "/");
+        Response<Object> response = new Response<>();
         if(!this.handlerMapping.containsKey(url)){
-            resp.getWriter().write("404 NOT FOUND!");
+            response.setStatusCode("404");
+            response.setContent("404 NOT FOUND!" + url);
+            resp.getWriter().write(response.toString());
             logger.info("404 NOT FOUND!" + url);
             return;
         }
@@ -89,9 +92,13 @@ public class MyDispatcherServlet extends HttpServlet {
         try {
             //第一个参数是method所对应的实例 在ioc容器中
             Object result = method.invoke(this.controllerMap.get(url), paramValues);
-            resp.getWriter().write(JSON.toJSONString(result));
+            response.setStatusCode("200");
+            response.setContent(result);
+            resp.getWriter().write(response.toString());
         } catch (Exception e) {
             e.printStackTrace();
+            response.setStatusCode("200");
+            resp.getWriter().write(response.toString());
         }
     }
 
@@ -114,7 +121,7 @@ public class MyDispatcherServlet extends HttpServlet {
     /**
      * 自动装配
      */
-    private void doAutowired(){
+    private void doAutowired() throws ServletException {
         if (ioc.isEmpty()){
             return;
         }
@@ -134,7 +141,7 @@ public class MyDispatcherServlet extends HttpServlet {
                         }
                         try {
                             //获取实例的时候，如果有代理就获取代理实例，没有就直接获取该实例
-                            Object fieldInstance = null == proxyMap.get(beanName)? ioc.get(beanName) : proxyMap.get(beanName);
+                            Object fieldInstance = getBean(clazz.getName(), field.getName(), beanName);
                             field.set(bean, fieldInstance);
                         }catch (Exception e){
                             e.printStackTrace();//如果出现报错 则跳过
@@ -146,6 +153,35 @@ public class MyDispatcherServlet extends HttpServlet {
         }catch (Exception e){
             e.printStackTrace();
         }
+    }
+
+    /**
+     * 获取bean
+     * @param beanName
+     * @return
+     */
+    private Object getBean(String className,String fieldName, String beanName){
+        //获取实例的时候，如果有代理就获取代理实例，没有就直接获取该实例
+        Object fieldInstance = null;
+        if(proxyMap.containsKey(beanName)){
+            fieldInstance = proxyMap.get(beanName);
+        }else {
+            fieldInstance = ioc.get(beanName);
+        }
+        if (fieldInstance instanceof List<?>){
+            StringBuilder context = new StringBuilder("Field ");
+            context.append(fieldName);
+            context.append(" in ");
+            context.append(className);
+            context.append(" required a single bean, but 2 were found:\n");
+            for (Object bean : (List<Object>) fieldInstance) {
+                context.append("- testBean: defined in file [");
+                context.append(bean.getClass().getName());
+                context.append("]\n");
+            }
+            throw new BeanDefinitionStoreException(context.toString());
+        }
+        return fieldInstance;
     }
 
     /**
@@ -201,19 +237,19 @@ public class MyDispatcherServlet extends HttpServlet {
                 if (clazz.isAnnotationPresent(MyController.class)){
                     MyController myController = clazz.getAnnotation(MyController.class);
                     String beanName = StringUtils.isBlank(myController.value())? clazz.getSimpleName() : myController.value();
-                    if (null != ioc.put(StringUtils.toLowerFirstWord(beanName),clazz.newInstance())){
-                        throw new RuntimeException("There can't be the same beans![" + beanName + "]");
+                    if (ioc.containsKey(StringUtils.toLowerFirstWord(beanName))){
+                        throw new BeanDefinitionStoreException("There can't be the same beans![" + beanName + "]");
                     }
+                    ioc.put(StringUtils.toLowerFirstWord(beanName),clazz.newInstance());
                 }else if (clazz.isAnnotationPresent(MyService.class)){
-                    String beanName = StringUtils.toLowerFirstWord(clazz.getSimpleName());
+                    MyService myService = clazz.getAnnotation(MyService.class);
+                    String beanName = myService.value();
                     Object instance = clazz.newInstance();
-                    ioc.put(beanName, instance);
                     doInterFacesInstance(clazz, instance, beanName);
                 }else if (clazz.isAnnotationPresent(MyComponent.class)){
                     MyComponent myComponent = clazz.getAnnotation(MyComponent.class);
-                    String beanName = StringUtils.isBlank(myComponent.value())? clazz.getSimpleName() : myComponent.value();
+                    String beanName = myComponent.value();
                     Object instance = clazz.newInstance();
-                    ioc.put(StringUtils.toLowerFirstWord(beanName), instance);
                     doInterFacesInstance(clazz, instance, beanName);
                 }else {
                     continue;
@@ -234,11 +270,20 @@ public class MyDispatcherServlet extends HttpServlet {
      * @param beanName
      */
     private void doInterFacesInstance(Class<?> clazz,Object instance,String beanName){
+        //如果自定义名字为空 则默认按照类型名称首字母小写和接口名称首字母小写 作为beanname放入ioc容器中
+        if (!StringUtils.isBlank(beanName)){
+            ioc.put(beanName, instance);
+        }
+        String className = StringUtils.toLowerFirstWord(clazz.getSimpleName());
+        ioc.put(className, instance);
         Class<?>[] interfaces = clazz.getInterfaces();
         for (Class<?> i : interfaces){
-            //如果一个接口存在2个实例，且beanName相同 则报错
-            if (null != ioc.put(StringUtils.toLowerFirstWord(i.getSimpleName()),instance)){
-                throw new RuntimeException("There can't be the same beans![" + beanName + "]");
+            String interfacesName = StringUtils.toLowerFirstWord(i.getSimpleName());
+            //如果一个接口存在2个实例，且另外一个没有自定义beanName 是否覆盖为否 则报错
+            if (ioc.containsKey(interfacesName) && StringUtils.isBlank(beanName) && !allowBeanDefinitionOverriding){
+                throw new BeanDefinitionStoreException("There can't be the same beans![" + beanName + "]");
+            }else {
+                ioc.put(interfacesName, instance);
             }
         }
     }
@@ -261,6 +306,9 @@ public class MyDispatcherServlet extends HttpServlet {
             //用Properties文件加载文件里的内容
             logger.info("读取" + location + "里面的文件");
             properties.load(resourceAsStream);
+            if ( null != properties.get("allowBeanDefinitionOverriding")){
+                allowBeanDefinitionOverriding = Boolean.valueOf((String) properties.get("allowBeanDefinitionOverriding"));
+            }
         } catch (IOException e) {
             e.printStackTrace();
             logger.info(e.getMessage());

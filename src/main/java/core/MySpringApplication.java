@@ -2,6 +2,8 @@ package core;
 
 import core.annotation.MySpringBootApplication;
 import core.config.EnvConfig;
+import core.exception.BeanDefinitionStoreException;
+import org.apache.catalina.LifecycleException;
 import org.apache.catalina.core.StandardContext;
 import org.apache.catalina.startup.Tomcat;
 
@@ -12,12 +14,12 @@ public class MySpringApplication {
 
     public static void run(Class<?> clazz, String... args) {
         if (clazz.isAnnotationPresent(MySpringBootApplication.class)) {
+            Tomcat tomcat = new Tomcat();
             try {
                 if (!EnvConfig.init()) {
                     System.exit(0);
                 }
                 // 1.创建一个内嵌的Tomcat
-                Tomcat tomcat = new Tomcat();
 
 
                 // 2.设置Tomcat端口默认为8080
@@ -49,6 +51,13 @@ public class MySpringApplication {
                 tomcat.start();
                 tomcat.getServer().await();
             } catch (Exception exception) {
+                if (exception instanceof BeanDefinitionStoreException && null != tomcat){
+                    try {
+                        tomcat.stop();
+                    } catch (LifecycleException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
         }
     }

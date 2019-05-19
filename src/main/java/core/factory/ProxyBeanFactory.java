@@ -13,7 +13,10 @@ public class ProxyBeanFactory {
 
     public static Object getProxyBean(Object instance, Aspect aspect, List<Method> beforeMethods, List<Method> afterMethods,List<Method> aroundMethods)
             throws Exception{
-        AspectInvacationHandler aspectInvacationHandler = new AspectInvacationHandler(instance, aspect, beforeMethods, afterMethods, aroundMethods);
-        return aspectInvacationHandler.getInstance();
+        if (null != instance && !(instance instanceof List)){
+            AspectInvacationHandler aspectInvacationHandler = new AspectInvacationHandler(instance, aspect, beforeMethods, afterMethods, aroundMethods);
+            return aspectInvacationHandler.getInstance();
+        }
+        return null;
     }
 }

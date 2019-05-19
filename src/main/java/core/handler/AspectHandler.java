@@ -3,6 +3,7 @@ package core.handler;
 import core.aspect.Aspect;
 import core.annotation.*;
 import core.factory.ProxyBeanFactory;
+import core.ioc.BeanContainer;
 import core.servlet.MyDispatcherServlet;
 import core.utils.StringUtils;
 
@@ -20,7 +21,7 @@ public class AspectHandler {
      * @param proxyMap
      * @param classNames
      */
-    public static void handler(MyDispatcherServlet servlet,Map<String, Object> ioc,Map<String, Object> proxyMap,List<String> classNames) {
+    public static void handler(MyDispatcherServlet servlet, BeanContainer ioc, Map<String, Object> proxyMap, List<String> classNames) {
         for (String className : classNames) {
             try{
                 Class<?> clazz = Class.forName(className);
@@ -54,22 +55,22 @@ public class AspectHandler {
 
     }
 
-    private static void doProxyInstance(Map<String, Object> ioc, Map<String, Object> proxyMap, List<String> classNames, List<Method> beforeMethods, List<Method> afterMethods,List<Method> aroundMethods, Aspect aspect) {
+    private static void doProxyInstance(BeanContainer ioc, Map<String, Object> proxyMap, List<String> classNames, List<Method> beforeMethods, List<Method> afterMethods,List<Method> aroundMethods, Aspect aspect) {
         for (String className : classNames) {
             try {
                 Class<?> clazz = Class.forName(className);
-                if (clazz.isAnnotationPresent(MyService.class) && isProxy(beforeMethods, afterMethods, clazz)){
-                    String beanName = StringUtils.toLowerFirstWord(clazz.getSimpleName());
-                    doProxyInstance(ioc, proxyMap, beforeMethods, afterMethods, aroundMethods, clazz, aspect, beanName);
-                }else if (clazz.isAnnotationPresent(MyController.class) && isProxy(beforeMethods, afterMethods, clazz)){
+                String beanName = "";
+                if (clazz.isAnnotationPresent(MyService.class) && isProxy(beforeMethods, afterMethods, aroundMethods, clazz)){
+                    MyService service = clazz.getAnnotation(MyService.class);
+                    beanName = StringUtils.isBlank(service.value())? StringUtils.toLowerFirstWord(clazz.getSimpleName()) : service.value();
+                }else if (clazz.isAnnotationPresent(MyController.class) && isProxy(beforeMethods, afterMethods, aroundMethods, clazz)){
                     MyController controller = clazz.getAnnotation(MyController.class);
-                    String beanName = StringUtils.isBlank(controller.value())? StringUtils.toLowerFirstWord(clazz.getSimpleName()) : controller.value();
-                    doProxyInstance(ioc, proxyMap, beforeMethods, afterMethods, aroundMethods, clazz, aspect, beanName);
-                }else if (clazz.isAnnotationPresent(MyComponent.class) && isProxy(beforeMethods, afterMethods, clazz)){
+                    beanName = StringUtils.isBlank(controller.value())? StringUtils.toLowerFirstWord(clazz.getSimpleName()) : controller.value();
+                }else if (clazz.isAnnotationPresent(MyComponent.class) && isProxy(beforeMethods, afterMethods, aroundMethods, clazz)){
                     MyComponent component = clazz.getAnnotation(MyComponent.class);
-                    String beanName = StringUtils.isBlank(component.value())? StringUtils.toLowerFirstWord(clazz.getSimpleName()) : component.value();
-                    doProxyInstance(ioc, proxyMap, beforeMethods, afterMethods, aroundMethods, clazz, aspect, beanName);
+                    beanName = StringUtils.isBlank(component.value())? StringUtils.toLowerFirstWord(clazz.getSimpleName()) : component.value();
                 }
+                doProxyInstance(ioc, proxyMap, beforeMethods, afterMethods, aroundMethods, clazz, aspect, beanName);
             }catch (Exception e){
                 e.printStackTrace();
             }
@@ -83,7 +84,7 @@ public class AspectHandler {
      * @param clazz
      * @return
      */
-    private static boolean isProxy(List<Method> beforeMethods,List<Method> afterMethods,Class<?> clazz){
+    private static boolean isProxy(List<Method> beforeMethods,List<Method> afterMethods,List<Method> aroundMethods,Class<?> clazz){
         Set<String> methodNames = new HashSet<>();
         //看看该类中是否含有要拦截的方法，如果有就需要创建代理
         for (Method m : beforeMethods) {
@@ -93,6 +94,10 @@ public class AspectHandler {
         for (Method m : afterMethods) {
             MyAfter myAfter = m.getAnnotation(MyAfter.class);
             methodNames.addAll(Arrays.asList(myAfter.MethodNames()));
+        }
+        for (Method m : aroundMethods) {
+            MyAround MyAround = m.getAnnotation(MyAround.class);
+            methodNames.addAll(Arrays.asList(MyAround.MethodNames()));
         }
         for (Method method : clazz.getDeclaredMethods()){
             if (methodNames.contains(method.getName())){
@@ -113,14 +118,16 @@ public class AspectHandler {
      * @param beanName
      * @throws Exception
      */
-    private static void doProxyInstance(Map<String, Object> ioc, Map<String, Object> proxyMap, List<Method> beforeMethods, List<Method> afterMethods,List<Method> aroundMethods,
+    private static void doProxyInstance(BeanContainer ioc, Map<String, Object> proxyMap, List<Method> beforeMethods, List<Method> afterMethods,List<Method> aroundMethods,
                                         Class<?> clazz, Aspect aspect, String beanName) throws Exception{
         //通过代理工厂获得代理实例
         Object instance = ProxyBeanFactory.getProxyBean(ioc.get(beanName), aspect, beforeMethods, afterMethods, aroundMethods);
-        proxyMap.put(beanName, instance);
-        Class<?>[] interfaces = clazz.getInterfaces();
-        for (Class<?> i : interfaces){
-            proxyMap.put(StringUtils.toLowerFirstWord(i.getSimpleName()),instance);
+        if (null != instance){
+            proxyMap.put(beanName, instance);
+            Class<?>[] interfaces = clazz.getInterfaces();
+            for (Class<?> i : interfaces){
+                proxyMap.put(StringUtils.toLowerFirstWord(i.getSimpleName()),instance);
+            }
         }
     }
 
