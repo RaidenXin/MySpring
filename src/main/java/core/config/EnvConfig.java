@@ -20,6 +20,9 @@ public class EnvConfig {
     public static String filepath = null;
 
 
+    static {
+        init();
+    }
     /**
      *     *    
      *     * 初始化加载配置
@@ -30,7 +33,6 @@ public class EnvConfig {
      *    
      */
     public static boolean init() {
-
 
         Configuration config;
         try {
