@@ -46,6 +46,12 @@ public class MyDispatcherServlet extends HttpServlet {
     private Map<String, Object> controllerMap  = new ConcurrentHashMap<>();
     private Map<String, Object> proxyMap = new ConcurrentHashMap<>();
 
+    private Class startClass;
+
+    public MyDispatcherServlet(Class startClass){
+        this.startClass = startClass;
+    }
+
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         // 注释掉父类实现，不然会报错：405 HTTP method GET is not supported by this URL
@@ -318,5 +324,9 @@ public class MyDispatcherServlet extends HttpServlet {
             e.printStackTrace();
             logger.info(e.getMessage());
         }
+    }
+
+    public Class getStartClass() {
+        return startClass;
     }
 }

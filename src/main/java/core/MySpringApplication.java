@@ -11,11 +11,13 @@ import org.apache.catalina.webresources.DirResourceSet;
 import org.apache.catalina.webresources.StandardRoot;
 
 import java.io.File;
+import java.lang.annotation.Annotation;
 
 public class MySpringApplication {
 
     public static void run(Class<?> clazz, String... args) {
         if (clazz.isAnnotationPresent(MySpringBootApplication.class)) {
+            Annotation[] annotations = clazz.getAnnotations();
             try {
                 // 创建tomcat服务器
                 Tomcat tomcatServer = new Tomcat();
@@ -32,7 +34,7 @@ public class MySpringApplication {
                 // 设置我们webRoot
                 WebResourceRoot resources = new StandardRoot(ctx);
                 resources.addPreResources(new DirResourceSet(resources, "/target/classes", additionWebInfClasses.getAbsolutePath(), "/"));
-                Wrapper myspring = tomcatServer.addServlet("", "myspring", new MyDispatcherServlet());
+                Wrapper myspring = tomcatServer.addServlet("", "myspring", new MyDispatcherServlet(clazz));
                 myspring.load();
                 ctx.addServletMappingDecoded("/*", "myspring");
                 // 开启我们的tomcat

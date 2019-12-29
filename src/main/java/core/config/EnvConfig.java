@@ -43,10 +43,10 @@ public class EnvConfig {
                 env = "local";
             }
             System.out.println("当前的环境是: " + env);
-            String resource = this.getClass().getResource("/").getPath();
-            String fileName = resource + "/application" + "-" + env + ".properties";
+            String rootPath = this.getClass().getResource("/").getPath();
+            String fileName = rootPath + "/application" + "-" + env + ".properties";
             if (!new File(fileName).exists()){
-                fileName = resource + "myapplication.properties";
+                fileName = rootPath + "myapplication.properties";
             }
             config = new PropertiesConfiguration(fileName);
             port = config.getString("tomcat.port");
