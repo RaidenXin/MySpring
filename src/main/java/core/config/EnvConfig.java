@@ -3,6 +3,11 @@ package core.config;
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.configuration.PropertiesConfiguration;
 
+import java.io.File;
+import java.net.URL;
+import java.nio.file.Files;
+import java.util.Properties;
+
 
 /**
  *   
@@ -14,13 +19,9 @@ import org.apache.commons.configuration.PropertiesConfiguration;
  */
 public class EnvConfig {
 
-    public static String port = null;
+    private String port;
 
-    public static String basedir = null;
-    public static String filepath = null;
-
-
-    static {
+    public EnvConfig(){
         init();
     }
     /**
@@ -32,7 +33,7 @@ public class EnvConfig {
      *     * @return boolean  
      *    
      */
-    public static boolean init() {
+    public boolean init() {
 
         Configuration config;
         try {
@@ -42,22 +43,25 @@ public class EnvConfig {
                 env = "local";
             }
             System.out.println("当前的环境是: " + env);
-            String fileName = "application" + "-" + env + ".properties";
-
-
+            String resource = this.getClass().getResource("/").getPath();
+            String fileName = resource + "/application" + "-" + env + ".properties";
+            if (!new File(fileName).exists()){
+                fileName = resource + "myapplication.properties";
+            }
             config = new PropertiesConfiguration(fileName);
             port = config.getString("tomcat.port");
             if (port == null || port.isEmpty()) {
                 port = "8080";
             }
-            basedir = config.getString("tomcat.basedir");
-            filepath = config.getString("filepath");
-
 
             return true;
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
+    }
+
+    public String getPort() {
+        return port;
     }
 }

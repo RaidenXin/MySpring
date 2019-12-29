@@ -21,6 +21,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 /**
@@ -41,9 +42,9 @@ public class MyDispatcherServlet extends HttpServlet {
     private Properties properties = new Properties();
     private List<String> classNames = new ArrayList<>();
     private BeanContainer ioc = new BeanContainer();
-    private Map<String, InterceptorMethod> handlerMapping = new  HashMap<>();
-    private Map<String, Object> controllerMap  = new HashMap<>();
-    private Map<String, Object> proxyMap = new HashMap<>();
+    private Map<String, InterceptorMethod> handlerMapping = new ConcurrentHashMap<>();
+    private Map<String, Object> controllerMap  = new ConcurrentHashMap<>();
+    private Map<String, Object> proxyMap = new ConcurrentHashMap<>();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {

@@ -3,7 +3,6 @@ package core;
 import core.annotation.MySpringBootApplication;
 import core.config.EnvConfig;
 import core.servlet.MyDispatcherServlet;
-import org.apache.catalina.Context;
 import org.apache.catalina.WebResourceRoot;
 import org.apache.catalina.Wrapper;
 import org.apache.catalina.core.StandardContext;
@@ -12,11 +11,8 @@ import org.apache.catalina.webresources.DirResourceSet;
 import org.apache.catalina.webresources.StandardRoot;
 
 import java.io.File;
-import java.util.logging.Logger;
 
 public class MySpringApplication {
-
-    private static Logger logger = Logger.getLogger("init");
 
     public static void run(Class<?> clazz, String... args) {
         if (clazz.isAnnotationPresent(MySpringBootApplication.class)) {
@@ -24,7 +20,8 @@ public class MySpringApplication {
                 // 创建tomcat服务器
                 Tomcat tomcatServer = new Tomcat();
                 // 设定端口号
-                final Integer webPort = Integer.parseInt(EnvConfig.port);
+                EnvConfig envConfig = new EnvConfig();
+                final Integer webPort = Integer.parseInt(envConfig.getPort());
                 tomcatServer.setPort(webPort);
                 // 设置上下文路径
                 StandardContext ctx = (StandardContext) tomcatServer.addWebapp("/", new File("src/main").getAbsolutePath());

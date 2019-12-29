@@ -14,6 +14,9 @@ public class Scanner {
      */
     public static void doScanner(MyDispatcherServlet servlet, String packageName, List<String> classNames) {
         URL url = servlet.getClass().getClassLoader().getResource(packageName.replaceAll("\\.","/"));
+        if (url == null){
+            return;
+        }
         File dir = new File(url.getFile());
         for (File file : dir.listFiles()) {
             if (file.isDirectory()){
